@@ -71,10 +71,30 @@ const Navbar = () => {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center space-x-4">
+            {isSearchOpen ? (
+              <form onSubmit={handleSearchSubmit} className="flex items-center">
+                <input 
+                  type="text" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  placeholder="Search..."
+                  className="bg-[#111] border border-white/10 text-white px-2 py-1 text-xs focus:outline-none focus:border-primary transition-colors w-24 sm:w-32"
+                  onBlur={() => setTimeout(() => setIsSearchOpen(false), 200)}
+                />
+              </form>
+            ) : (
+              <button onClick={() => setIsSearchOpen(true)} className="text-gray-300 hover:text-primary transition-colors">
+                <Search size={20} />
+              </button>
+            )}
+            <Link to="/profile" className="text-gray-300 hover:text-primary transition-colors">
+              <User size={20} />
+            </Link>
             <Link to="/cart" className="relative text-gray-300 hover:text-primary transition-colors group">
-              <ShoppingCart size={24} />
+              <ShoppingCart size={20} />
               {itemCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-primary text-black text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 bg-primary text-black text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center">
                   {itemCount}
                 </span>
               )}
@@ -83,7 +103,7 @@ const Navbar = () => {
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="text-gray-300 hover:text-white"
             >
-              {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
         </div>
@@ -97,7 +117,6 @@ const Navbar = () => {
             <Link to="/products?category=Protein" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-3 text-base font-bold uppercase tracking-wide text-gray-300 hover:bg-white/5 rounded-md">Proteins</Link>
             <Link to="/products?category=Pre-Workout" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-3 text-base font-bold uppercase tracking-wide text-gray-300 hover:bg-white/5 rounded-md">Pre-Workout</Link>
             <Link to="/contact" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-3 text-base font-bold uppercase tracking-wide text-gray-300 hover:bg-white/5 rounded-md">Contact</Link>
-            <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-3 text-base font-bold uppercase tracking-wide text-gray-300 hover:bg-white/5 rounded-md">Admin Portal</Link>
           </div>
         </div>
       )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useProducts, Product } from '../../contexts/ProductsContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useOrders } from '../../contexts/OrdersContext';
@@ -10,12 +11,14 @@ import { Users } from 'lucide-react'; // added Users icon
 
 const Admin = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [redirectCount, setRedirectCount] = useState(5);
 
   useEffect(() => {
     let mounted = true;
@@ -61,6 +64,20 @@ const Admin = () => {
     return () => { mounted = false; };
   }, [user]);
 
+  // Automatic redirect countdown for logged-in regular customers
+  useEffect(() => {
+    if (user && !isAuthorized && !isVerifying) {
+      if (redirectCount <= 0) {
+        navigate('/');
+        return;
+      }
+      const timer = setTimeout(() => {
+        setRedirectCount(prev => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, isAuthorized, isVerifying, redirectCount, navigate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -94,6 +111,29 @@ const Admin = () => {
       <div className="min-h-[80vh] flex items-center justify-center px-4">
         <div className="text-primary font-bold animate-pulse uppercase tracking-widest text-sm">
           Verifying Security Clearance...
+        </div>
+      </div>
+    );
+  }
+
+  // If logged in but NOT authorized (regular customer), show blocked screen with redirect countdown
+  if (user && !isAuthorized) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center px-4">
+        <div className="bg-[#111] border border-red-500/20 p-8 max-w-md w-full text-center">
+          <h2 className="text-2xl font-display font-black text-red-500 italic uppercase tracking-tighter mb-4">Access Denied</h2>
+          <p className="text-gray-400 mb-6 text-sm leading-relaxed">
+            This area is restricted to administrators only. Your account does not have permission to access the Control Panel.
+          </p>
+          <p className="text-xs text-gray-500 mb-6">
+            Redirecting you to the home page in <span className="text-primary font-bold">{redirectCount}</span> seconds...
+          </p>
+          <button 
+            onClick={() => navigate('/')}
+            className="w-full bg-primary hover:bg-primary-hover text-black px-8 py-3 font-bold uppercase tracking-wider text-xs transition-colors"
+          >
+            Back to Shop
+          </button>
         </div>
       </div>
     );

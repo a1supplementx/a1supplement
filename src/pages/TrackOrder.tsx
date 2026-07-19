@@ -1,22 +1,51 @@
 import React, { useState } from 'react';
-import { useOrders } from '../contexts/OrdersContext';
+import { supabase } from '../lib/supabase';
 import { Package, Search, Clock, CheckCircle, Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const TrackOrder = () => {
   const [emailQuery, setEmailQuery] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
-  const { orders } = useOrders();
+  const [myOrders, setMyOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Filter orders by specific email address
-  const myOrders = orders.filter(
-    o => o.customerData.email.toLowerCase() === emailQuery.toLowerCase()
-  );
-
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (emailQuery.trim()) {
-      setHasSearched(true);
+    const cleanEmail = emailQuery.trim().toLowerCase();
+    if (!cleanEmail) return;
+
+    setLoading(true);
+    setHasSearched(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('customer_data->>email', cleanEmail)
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        const mapped = data.map(d => ({
+          id: d.id,
+          date: d.date,
+          paymentMethod: d.payment_method || 'online',
+          fulfillmentType: d.fulfillment_type || 'delivery',
+          customerData: d.customer_data,
+          items: d.items,
+          subtotal: d.subtotal,
+          deliveryFee: d.delivery_fee,
+          promos: d.promos,
+          total: d.total,
+          status: d.status
+        }));
+        setMyOrders(mapped);
+      }
+    } catch (err) {
+      console.error('Error tracking order:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -69,14 +98,20 @@ const TrackOrder = () => {
             </div>
           </div>
           <div className="sm:self-end">
-            <button type="submit" className="w-full bg-primary hover:bg-primary-hover text-black px-8 py-3 font-bold uppercase tracking-wider text-sm transition-colors h-[46px]">
-              Lookup
+            <button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary-hover text-black px-8 py-3 font-bold uppercase tracking-wider text-sm transition-colors h-[46px]">
+              {loading ? 'Searching...' : 'Lookup'}
             </button>
           </div>
         </form>
       </div>
 
-      {hasSearched && (
+      {loading ? (
+        <div className="text-center py-16">
+          <div className="text-primary font-bold animate-pulse uppercase tracking-widest text-sm">
+            Fetching Order details...
+          </div>
+        </div>
+      ) : hasSearched && (
         <div className="space-y-6">
           <h2 className="text-xl font-bold text-white uppercase tracking-wider mb-6 flex items-center gap-3 border-b border-white/10 pb-4">
             <Package /> Order History ({myOrders.length})

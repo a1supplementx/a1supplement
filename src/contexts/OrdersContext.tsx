@@ -57,11 +57,31 @@ export const OrdersProvider: React.FC<{children: React.ReactNode}> = ({ children
   }, []);
 
   const fetchOrders = async () => {
-    const { data, error } = await supabase.from('orders').select('*').order('date', { ascending: false });
-    if (error) {
-       console.error('Error fetching orders:', error);
-    } else if (data) {
-       const mapped = data.map(d => ({
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setOrders([]);
+      return;
+    }
+
+    try {
+      // Check if whitelisted admin
+      const { data: adminData } = await supabase.from('store_admins').select('email').eq('email', user.email);
+      const isAdmin = adminData && adminData.length > 0;
+
+      let query = supabase.from('orders').select('*');
+      if (!isAdmin) {
+        // If not admin, only fetch orders placed by this customer
+        query = query.eq('customer_id', user.id);
+      }
+
+      const { data, error } = await query.order('date', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data) {
+        const mapped = data.map(d => ({
           id: d.id,
           date: d.date,
           paymentMethod: d.payment_method || 'online',
@@ -73,8 +93,11 @@ export const OrdersProvider: React.FC<{children: React.ReactNode}> = ({ children
           promos: d.promos,
           total: d.total,
           status: d.status
-       }));
-       setOrders(mapped);
+        }));
+        setOrders(mapped);
+      }
+    } catch (err) {
+      console.error('Error fetching orders:', err);
     }
   };
 

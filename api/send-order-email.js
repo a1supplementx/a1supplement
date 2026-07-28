@@ -260,6 +260,7 @@ export default async function handler(req, res) {
         subject: emailSubject,
         html: emailHtml
       })
+    });
     const data = await response.json();
 
     // Trigger Discord Webhook Notification securely from the serverless side

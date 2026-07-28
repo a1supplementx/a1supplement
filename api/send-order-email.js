@@ -264,7 +264,7 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     // Trigger Discord Webhook Notification securely from the serverless side
-    const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL;
+    const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL || process.env.VITE_DISCORD_WEBHOOK_URL;
     if (type === 'new_order' && discordWebhookUrl) {
       try {
         const itemsList = order.items.map(item => `- ${item.quantity}x ${item.name} (₹${item.price})`).join('\n');

@@ -143,35 +143,7 @@ const Checkout = () => {
         }).catch(err => console.error("Error triggering new order email:", err));
       }
 
-      // Discord Webhook Notification Alert
-      const webhookUrl = import.meta.env.VITE_DISCORD_WEBHOOK_URL;
-      if (webhookUrl) {
-        const itemsList = cart.map(item => `- ${item.quantity}x ${item.name} (₹${item.price})`).join('\n');
-        const paymentMethodName = method === 'cod' ? 'Cash on Delivery 💵' : (method === 'bank' ? 'Bank Transfer 🏦' : 'Card / UPI 💳');
-        const fulfillmentName = fulfillmentType === 'pickup' ? 'Store Pickup 🏪' : 'Home Delivery 🚚';
-        const fulfillmentLoc = shippingData.pickupLocation || `${shippingData.address}, ${shippingData.city}, ${shippingData.region} (${shippingData.zipCode})`;
 
-        fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            embeds: [
-              {
-                title: "🔔 New Order Received!",
-                color: 16768000,
-                fields: [
-                  { name: "Customer", value: `${shippingData.firstName} ${shippingData.lastName}\n📧 ${shippingData.email}\n📞 ${shippingData.phone || 'N/A'}`, inline: true },
-                  { name: "Fulfillment", value: `${fulfillmentName}\n📍 ${fulfillmentLoc}`, inline: true },
-                  { name: "Payment Method", value: paymentMethodName, inline: true },
-                  { name: "Order Total", value: `**₹${finalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}**`, inline: true },
-                  { name: "Items", value: itemsList || "No items" }
-                ],
-                timestamp: new Date().toISOString()
-              }
-            ]
-          })
-        }).catch(err => console.error("Error sending discord webhook:", err));
-      }
 
       activePromos.forEach(p => incrementPromoUsage(p.code));
       clearCart();

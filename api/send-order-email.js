@@ -260,9 +260,44 @@ export default async function handler(req, res) {
         subject: emailSubject,
         html: emailHtml
       })
-    });
-
     const data = await response.json();
+
+    // Trigger Discord Webhook Notification securely from the serverless side
+    const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL;
+    if (type === 'new_order' && discordWebhookUrl) {
+      try {
+        const itemsList = order.items.map(item => `- ${item.quantity}x ${item.name} (₹${item.price})`).join('\n');
+        const paymentMethodName = order.paymentMethod === 'cod' ? 'Cash on Delivery 💵' : (order.paymentMethod === 'bank' ? 'Bank Transfer 🏦' : 'Card / UPI 💳');
+        const fulfillmentName = order.fulfillmentType === 'pickup' ? 'Store Pickup 🏪' : 'Home Delivery 🚚';
+        const fulfillmentLoc = order.fulfillmentType === 'pickup' 
+          ? order.customerData.pickupLocation || 'Main Store' 
+          : `${order.customerData.address}, ${order.customerData.city}, ${order.customerData.region || ''} (${order.customerData.zipCode || ''})`;
+
+        await fetch(discordWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [
+              {
+                title: "🔔 New Order Received!",
+                color: 16768000,
+                fields: [
+                  { name: "Customer", value: `${order.customerData.firstName} ${order.customerData.lastName}\n📧 ${order.customerData.email}\n📞 ${order.customerData.phone || 'N/A'}`, inline: true },
+                  { name: "Fulfillment", value: `${fulfillmentName}\n📍 ${fulfillmentLoc}`, inline: true },
+                  { name: "Payment Method", value: paymentMethodName, inline: true },
+                  { name: "Order Total", value: `**₹${order.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}**`, inline: true },
+                  { name: "Items", value: itemsList || "No items" }
+                ],
+                timestamp: new Date().toISOString()
+              }
+            ]
+          })
+        });
+      } catch (discordErr) {
+        console.error("Failed to send Discord notification:", discordErr);
+      }
+    }
+
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return res.status(500).json({ error: error.message });

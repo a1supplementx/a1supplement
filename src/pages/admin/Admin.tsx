@@ -514,11 +514,15 @@ const ManageOrders = () => {
                     }
                   }}
                   className={`text-xs font-bold uppercase tracking-wider px-3 py-1 outline-none border-none ${
+                    displayData.status === 'Pending Payment' ? 'bg-orange-500/20 text-orange-500' :
                     displayData.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-500' :
                     displayData.status === 'Shipped' ? 'bg-blue-500/20 text-blue-500' :
                     'bg-green-500/20 text-green-500'
                   }`}
                 >
+                  {displayData.status === 'Pending Payment' && (
+                    <option value="Pending Payment" className="bg-[#111] text-white">Pending Payment</option>
+                  )}
                   <option value="Pending" className="bg-[#111] text-white">Pending</option>
                   <option value="Shipped" className="bg-[#111] text-white">Shipped</option>
                   <option value="Delivered" className="bg-[#111] text-white">Delivered</option>
@@ -554,13 +558,28 @@ const ManageOrders = () => {
                         <p>{displayData.customerData.city}{displayData.customerData.zipCode ? `, ${displayData.customerData.zipCode}` : ''}</p>
                       </>
                     )}
-                    <div className="flex gap-2 mt-3 flex-wrap">
-                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 ${displayData.paymentMethod === 'cod' ? 'bg-primary/20 text-primary' : 'bg-blue-500/20 text-blue-400'}`}>
-                        {displayData.paymentMethod === 'cod' ? '💵 Cash on Delivery' : '💳 Online Payment'}
+                    <div className="flex gap-2 mt-3 flex-wrap items-center">
+                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 ${
+                        displayData.paymentMethod === 'cod' ? 'bg-primary/20 text-primary' : 
+                        displayData.paymentMethod === 'bank' ? 'bg-orange-500/20 text-orange-400' : 
+                        'bg-blue-500/20 text-blue-400'
+                      }`}>
+                        {displayData.paymentMethod === 'cod' ? '💵 Cash on Delivery' : 
+                         displayData.paymentMethod === 'bank' ? '🏦 Bank Transfer' : 
+                         '💳 Online Payment'}
                       </span>
                       <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 ${displayData.fulfillmentType === 'pickup' ? 'bg-purple-500/20 text-purple-400' : 'bg-gray-500/20 text-gray-400'}`}>
                         {displayData.fulfillmentType === 'pickup' ? '🏪 Store Pickup' : '🚚 Home Delivery'}
                       </span>
+                      
+                      {displayData.status === 'Pending Payment' && !isEditing && (
+                        <button 
+                          onClick={() => updateOrderStatus(order.id, 'Pending')}
+                          className="bg-green-500 hover:bg-green-600 text-black text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded transition-colors ml-auto shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+                        >
+                          Mark as Paid (Confirm Receipt)
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -824,7 +843,8 @@ const ManageSettings = () => {
        email: formData.email,
        phone: formData.phone,
        defaultDeliveryFee: formData.defaultDeliveryFee,
-       freeDeliveryThreshold: formData.freeDeliveryThreshold
+       freeDeliveryThreshold: formData.freeDeliveryThreshold,
+       bankDetails: formData.bankDetails
     });
     updateDeliveryZones(formData.deliveryZones);
     updatePickupLocations(formData.pickupLocations);
@@ -921,6 +941,100 @@ const ManageSettings = () => {
                {formData.deliveryZones.length === 0 && <p className="text-xs text-gray-500 italic">No custom zones configured.</p>}
              </div>
           </div>
+        </div>
+      </div>
+
+      {/* Bank Transfer Details */}
+      <div className="mt-12 pt-8 border-t border-white/10">
+        <div className="mb-6">
+          <h3 className="text-xl font-bold text-white uppercase tracking-wider text-[#3395FF]">Bank Transfer Details</h3>
+          <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Configure your personal/company bank details to receive manual transfer payments</p>
+        </div>
+        <div className="bg-[#0a0a0a] border border-white/5 p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <input 
+              type="checkbox" 
+              id="bank-enabled" 
+              checked={formData.bankDetails?.enabled || false} 
+              onChange={e => setFormData({
+                ...formData,
+                bankDetails: { ...(formData.bankDetails || { enabled: false, bankName: '', accountName: '', accountNumber: '', ifscCode: '', instructions: '' }), enabled: e.target.checked }
+              })} 
+              className="w-4 h-4 accent-primary" 
+            />
+            <label htmlFor="bank-enabled" className="text-sm font-bold text-white uppercase tracking-widest cursor-pointer">
+              Enable Manual Bank Transfer Payment Method
+            </label>
+          </div>
+
+          {formData.bankDetails?.enabled && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Bank Name</label>
+                <input 
+                  type="text" 
+                  value={formData.bankDetails.bankName || ''} 
+                  onChange={e => setFormData({
+                    ...formData,
+                    bankDetails: { ...formData.bankDetails, bankName: e.target.value }
+                  })} 
+                  placeholder="e.g. HDFC Bank" 
+                  className="w-full bg-[#111] border border-white/10 text-white px-4 py-3 focus:outline-none focus:border-primary transition-colors text-sm" 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Account Name (Beneficiary)</label>
+                <input 
+                  type="text" 
+                  value={formData.bankDetails.accountName || ''} 
+                  onChange={e => setFormData({
+                    ...formData,
+                    bankDetails: { ...formData.bankDetails, accountName: e.target.value }
+                  })} 
+                  placeholder="e.g. A1 Supplements" 
+                  className="w-full bg-[#111] border border-white/10 text-white px-4 py-3 focus:outline-none focus:border-primary transition-colors text-sm" 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Account Number</label>
+                <input 
+                  type="text" 
+                  value={formData.bankDetails.accountNumber || ''} 
+                  onChange={e => setFormData({
+                    ...formData,
+                    bankDetails: { ...formData.bankDetails, accountNumber: e.target.value }
+                  })} 
+                  placeholder="e.g. 501001234567" 
+                  className="w-full bg-[#111] border border-white/10 text-white px-4 py-3 focus:outline-none focus:border-primary transition-colors text-sm" 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">IFSC / Routing Code</label>
+                <input 
+                  type="text" 
+                  value={formData.bankDetails.ifscCode || ''} 
+                  onChange={e => setFormData({
+                    ...formData,
+                    bankDetails: { ...formData.bankDetails, ifscCode: e.target.value }
+                  })} 
+                  placeholder="e.g. HDFC0000123" 
+                  className="w-full bg-[#111] border border-white/10 text-white px-4 py-3 focus:outline-none focus:border-primary transition-colors text-sm" 
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Instructions for Customer</label>
+                <textarea 
+                  value={formData.bankDetails.instructions || ''} 
+                  onChange={e => setFormData({
+                    ...formData,
+                    bankDetails: { ...formData.bankDetails, instructions: e.target.value }
+                  })} 
+                  rows={3} 
+                  className="w-full bg-[#111] border border-white/10 text-white px-4 py-3 focus:outline-none focus:border-primary resize-none text-sm" 
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

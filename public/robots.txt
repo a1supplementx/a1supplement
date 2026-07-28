@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://a1supplement.com/sitemap.xml

@@ -11,7 +11,7 @@ export interface OrderPromo {
 export interface Order {
   id: string;
   date: string;
-  paymentMethod: 'online' | 'cod';
+  paymentMethod: 'online' | 'cod' | 'bank';
   fulfillmentType: 'delivery' | 'pickup';
   customerData: {
     firstName: string;
@@ -29,7 +29,7 @@ export interface Order {
   deliveryFee: number;
   promos: OrderPromo[];
   total: number;
-  status: 'Pending' | 'Shipped' | 'Delivered';
+  status: 'Pending' | 'Shipped' | 'Delivered' | 'Pending Payment';
 }
 
 interface OrdersContextType {

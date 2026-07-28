@@ -22,7 +22,7 @@ const Checkout = () => {
   // Fulfillment & Payment options
   const [fulfillmentType, setFulfillmentType] = useState<'delivery' | 'pickup'>('delivery');
   const [selectedPickupId, setSelectedPickupId] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod' | 'bank'>('online');
 
   // Auto-fill
   const [fFirstName, setFFirstName] = useState('');
@@ -108,7 +108,7 @@ const Checkout = () => {
     setCheckoutStep('payment');
   };
 
-  const placeOrder = (method: 'online' | 'cod') => {
+  const placeOrder = (method: 'online' | 'cod' | 'bank') => {
     setIsProcessing(true);
     setTimeout(() => {
       const orderPromosArray = activePromos.map(p => ({
@@ -117,6 +117,8 @@ const Checkout = () => {
         discountValue: p.type === 'free_shipping' ? 0 : (p.type === 'percentage' ? cartTotal * (p.value / 100) : p.value)
       }));
 
+      const newOrderStatus = method === 'bank' ? 'Pending Payment' : 'Pending';
+
       addOrder({
         customerData: shippingData,
         items: cart,
@@ -124,10 +126,40 @@ const Checkout = () => {
         deliveryFee,
         promos: orderPromosArray,
         total: finalTotal,
-        status: 'Pending',
+        status: newOrderStatus,
         paymentMethod: method,
         fulfillmentType,
       });
+
+      // Discord Webhook Notification Alert
+      const webhookUrl = import.meta.env.VITE_DISCORD_WEBHOOK_URL;
+      if (webhookUrl) {
+        const itemsList = cart.map(item => `- ${item.quantity}x ${item.name} (₹${item.price})`).join('\n');
+        const paymentMethodName = method === 'cod' ? 'Cash on Delivery 💵' : (method === 'bank' ? 'Bank Transfer 🏦' : 'Card / UPI 💳');
+        const fulfillmentName = fulfillmentType === 'pickup' ? 'Store Pickup 🏪' : 'Home Delivery 🚚';
+        const fulfillmentLoc = shippingData.pickupLocation || `${shippingData.address}, ${shippingData.city}, ${shippingData.region} (${shippingData.zipCode})`;
+
+        fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [
+              {
+                title: "🔔 New Order Received!",
+                color: 16768000,
+                fields: [
+                  { name: "Customer", value: `${shippingData.firstName} ${shippingData.lastName}\n📧 ${shippingData.email}\n📞 ${shippingData.phone || 'N/A'}`, inline: true },
+                  { name: "Fulfillment", value: `${fulfillmentName}\n📍 ${fulfillmentLoc}`, inline: true },
+                  { name: "Payment Method", value: paymentMethodName, inline: true },
+                  { name: "Order Total", value: `**₹${finalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}**`, inline: true },
+                  { name: "Items", value: itemsList || "No items" }
+                ],
+                timestamp: new Date().toISOString()
+              }
+            ]
+          })
+        }).catch(err => console.error("Error sending discord webhook:", err));
+      }
 
       activePromos.forEach(p => incrementPromoUsage(p.code));
       clearCart();
@@ -151,8 +183,27 @@ const Checkout = () => {
           Order Confirmed!
         </h2>
         <p className="text-gray-400 mb-3 text-lg">
-          {paymentMethod === 'cod' ? 'Pay on delivery. Your order is being prepared.' : 'Payment successful! Your supplements are on the way.'}
+          {paymentMethod === 'cod' ? 'Pay on delivery. Your order is being prepared.' : 
+           paymentMethod === 'bank' ? 'Transfer pending verification. Please make your transfer using the bank details below.' :
+           'Payment successful! Your supplements are on the way.'}
         </p>
+        {paymentMethod === 'bank' && settings.bankDetails?.enabled && (
+          <div className="bg-[#111] border border-white/10 p-6 text-left max-w-md w-full mb-6 space-y-3">
+            <h4 className="text-primary font-bold uppercase text-xs tracking-wider border-b border-white/5 pb-2">Beneficiary Bank Account</h4>
+            <div className="text-sm space-y-2">
+              <div className="flex justify-between"><span className="text-gray-500">Bank Name:</span><span className="text-white font-semibold">{settings.bankDetails.bankName}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Account Holder:</span><span className="text-white font-semibold">{settings.bankDetails.accountName}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Account Number:</span><span className="text-white font-mono font-semibold">{settings.bankDetails.accountNumber}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">IFSC Code:</span><span className="text-white font-mono font-semibold">{settings.bankDetails.ifscCode}</span></div>
+            </div>
+            {settings.bankDetails.instructions && (
+              <div className="bg-primary/5 p-3 text-xs text-gray-300 border border-primary/20 rounded mt-2">
+                <p className="font-bold text-primary mb-1 uppercase tracking-widest text-[9px]">Instructions:</p>
+                {settings.bankDetails.instructions}
+              </div>
+            )}
+          </div>
+        )}
         {fulfillmentType === 'pickup' && shippingData?.pickupLocation && (
           <div className="bg-primary/10 border border-primary/30 px-6 py-4 mb-8 text-left max-w-md w-full">
             <p className="text-primary font-bold text-xs uppercase tracking-widest mb-1">Pickup Location</p>
@@ -278,7 +329,7 @@ const Checkout = () => {
               <h2 className="text-xl font-bold text-white uppercase tracking-wider mb-6">Choose Payment</h2>
 
               {/* Payment Method Selector */}
-              <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className={`grid gap-4 mb-8 ${settings.bankDetails?.enabled ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('online')}
@@ -287,6 +338,16 @@ const Checkout = () => {
                   <CardIcon size={24} />
                   Card / UPI
                 </button>
+                {settings.bankDetails?.enabled && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('bank')}
+                    className={`flex flex-col items-center gap-2 p-4 border-2 font-bold uppercase tracking-wider text-sm transition-all ${paymentMethod === 'bank' ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 text-gray-400 hover:border-white/30'}`}
+                  >
+                    <Banknote size={24} className="rotate-90" />
+                    Bank Transfer
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('cod')}
@@ -329,6 +390,46 @@ const Checkout = () => {
                           <input required type="text" defaultValue={`${shippingData?.firstName || ''} ${shippingData?.lastName || ''}`} className="w-full bg-gray-50 border border-gray-300 text-black px-4 py-3 focus:outline-none focus:border-[#3395FF] transition-colors" />
                         </div>
                       </form>
+                    </div>
+                  </motion.div>
+                ) : paymentMethod === 'bank' ? (
+                  <motion.div key="bank" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <div className="bg-[#0a0a0a] border border-white/10 p-6 space-y-4">
+                      <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+                        <Banknote size={24} className="text-primary rotate-90" />
+                        <h3 className="text-white font-bold uppercase tracking-wider text-sm">Transfer Details</h3>
+                      </div>
+                      
+                      <div className="space-y-3 text-xs uppercase tracking-wider">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 font-bold">Bank Name:</span>
+                          <span className="text-white font-semibold">{settings.bankDetails?.bankName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 font-bold">Account Holder:</span>
+                          <span className="text-white font-semibold">{settings.bankDetails?.accountName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 font-bold">Account Number:</span>
+                          <span className="text-white font-mono font-semibold">{settings.bankDetails?.accountNumber}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 font-bold">IFSC Code:</span>
+                          <span className="text-white font-mono font-semibold">{settings.bankDetails?.ifscCode}</span>
+                        </div>
+                      </div>
+
+                      {settings.bankDetails?.instructions && (
+                        <div className="bg-primary/5 border border-primary/20 p-3 text-[11px] text-gray-300 rounded leading-relaxed">
+                          <p className="font-bold text-primary uppercase tracking-widest text-[9px] mb-1">Instructions:</p>
+                          {settings.bankDetails.instructions}
+                        </div>
+                      )}
+
+                      <div className="bg-black/30 p-4 space-y-1 text-sm">
+                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Transfer Amount</p>
+                        <p className="text-white font-bold">Total Due: <span className="text-primary">₹{finalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></p>
+                      </div>
                     </div>
                   </motion.div>
                 ) : (
@@ -424,6 +525,14 @@ const Checkout = () => {
                 className="w-full bg-primary hover:bg-primary-hover disabled:opacity-50 text-black px-8 py-5 font-bold uppercase tracking-wider text-sm transition-colors flex justify-center items-center gap-3 shadow-[0_0_20px_rgba(255,215,0,0.3)]"
               >
                 {isProcessing ? 'Placing Order...' : <><Banknote size={18} /> Confirm — Pay on Delivery</>}
+              </button>
+            ) : paymentMethod === 'bank' ? (
+              <button
+                onClick={() => placeOrder('bank')}
+                disabled={isProcessing}
+                className="w-full bg-primary hover:bg-primary-hover disabled:opacity-50 text-black px-8 py-5 font-bold uppercase tracking-wider text-sm transition-colors flex justify-center items-center gap-3 shadow-[0_0_20px_rgba(255,215,0,0.3)]"
+              >
+                {isProcessing ? 'Confirming Transfer...' : <><Banknote size={18} className="rotate-90" /> Confirm — I've Sent the Money</>}
               </button>
             ) : (
               <button

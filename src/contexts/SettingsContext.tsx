@@ -14,6 +14,15 @@ export interface PickupLocation {
   city: string;
 }
 
+export interface BankDetails {
+  enabled: boolean;
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  ifscCode: string;
+  instructions: string;
+}
+
 export interface SiteSettings {
   address: string;
   email: string;
@@ -25,6 +34,7 @@ export interface SiteSettings {
   deliveryZones: DeliveryZone[];
   pickupLocations: PickupLocation[];
   subscribedEmails: string[];
+  bankDetails: BankDetails;
 }
 
 const defaultSettings: SiteSettings = {
@@ -40,7 +50,15 @@ const defaultSettings: SiteSettings = {
     { id: '2', region: 'Delhi', fee: 300 }
   ],
   pickupLocations: [],
-  subscribedEmails: []
+  subscribedEmails: [],
+  bankDetails: {
+    enabled: false,
+    bankName: '',
+    accountName: '',
+    accountNumber: '',
+    ifscCode: '',
+    instructions: 'Please transfer the order total to the bank account listed above. Once completed, share your payment confirmation/reference with our support.'
+  }
 };
 
 interface SettingsContextType {
@@ -74,7 +92,8 @@ export const SettingsProvider: React.FC<{children: React.ReactNode}> = ({ childr
         freeDeliveryThreshold: data.free_delivery_threshold,
         deliveryZones: data.delivery_zones || [],
         pickupLocations: data.pickup_locations || [],
-        subscribedEmails: data.subscribed_emails || []
+        subscribedEmails: data.subscribed_emails || [],
+        bankDetails: data.bank_details || defaultSettings.bankDetails
       });
     }
   };
@@ -90,6 +109,7 @@ export const SettingsProvider: React.FC<{children: React.ReactNode}> = ({ childr
     if (updates.defaultDeliveryFee !== undefined) dbUpdates.default_delivery_fee = updates.defaultDeliveryFee;
     if (updates.freeDeliveryThreshold !== undefined) dbUpdates.free_delivery_threshold = updates.freeDeliveryThreshold;
     if (updates.subscribedEmails !== undefined) dbUpdates.subscribed_emails = updates.subscribedEmails;
+    if (updates.bankDetails !== undefined) dbUpdates.bank_details = updates.bankDetails;
     await supabase.from('settings').upsert({ id: 'core', ...dbUpdates });
   };
 

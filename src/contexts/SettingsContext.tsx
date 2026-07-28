@@ -35,6 +35,8 @@ export interface SiteSettings {
   pickupLocations: PickupLocation[];
   subscribedEmails: string[];
   bankDetails: BankDetails;
+  razorpayEnabled: boolean;
+  codEnabled: boolean;
 }
 
 const defaultSettings: SiteSettings = {
@@ -58,7 +60,9 @@ const defaultSettings: SiteSettings = {
     accountNumber: '',
     ifscCode: '',
     instructions: 'Please transfer the order total to the bank account listed above. Once completed, share your payment confirmation/reference with our support.'
-  }
+  },
+  razorpayEnabled: true,
+  codEnabled: true
 };
 
 interface SettingsContextType {
@@ -93,7 +97,9 @@ export const SettingsProvider: React.FC<{children: React.ReactNode}> = ({ childr
         deliveryZones: data.delivery_zones || [],
         pickupLocations: data.pickup_locations || [],
         subscribedEmails: data.subscribed_emails || [],
-        bankDetails: data.bank_details || defaultSettings.bankDetails
+        bankDetails: data.bank_details || defaultSettings.bankDetails,
+        razorpayEnabled: data.razorpay_enabled !== undefined && data.razorpay_enabled !== null ? data.razorpay_enabled : defaultSettings.razorpayEnabled,
+        codEnabled: data.cod_enabled !== undefined && data.cod_enabled !== null ? data.cod_enabled : defaultSettings.codEnabled
       });
     }
   };
@@ -110,6 +116,8 @@ export const SettingsProvider: React.FC<{children: React.ReactNode}> = ({ childr
     if (updates.freeDeliveryThreshold !== undefined) dbUpdates.free_delivery_threshold = updates.freeDeliveryThreshold;
     if (updates.subscribedEmails !== undefined) dbUpdates.subscribed_emails = updates.subscribedEmails;
     if (updates.bankDetails !== undefined) dbUpdates.bank_details = updates.bankDetails;
+    if (updates.razorpayEnabled !== undefined) dbUpdates.razorpay_enabled = updates.razorpayEnabled;
+    if (updates.codEnabled !== undefined) dbUpdates.cod_enabled = updates.codEnabled;
     await supabase.from('settings').upsert({ id: 'core', ...dbUpdates });
   };
 

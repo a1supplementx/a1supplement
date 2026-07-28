@@ -844,7 +844,9 @@ const ManageSettings = () => {
        phone: formData.phone,
        defaultDeliveryFee: formData.defaultDeliveryFee,
        freeDeliveryThreshold: formData.freeDeliveryThreshold,
-       bankDetails: formData.bankDetails
+       bankDetails: formData.bankDetails,
+       razorpayEnabled: formData.razorpayEnabled,
+       codEnabled: formData.codEnabled
     });
     updateDeliveryZones(formData.deliveryZones);
     updatePickupLocations(formData.pickupLocations);
@@ -940,6 +942,47 @@ const ManageSettings = () => {
                ))}
                {formData.deliveryZones.length === 0 && <p className="text-xs text-gray-500 italic">No custom zones configured.</p>}
              </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Active Payment Methods */}
+      <div className="mt-12 pt-8 border-t border-white/10">
+        <div className="mb-6">
+          <h3 className="text-xl font-bold text-white uppercase tracking-wider text-[#3395FF]">Payment Method Settings</h3>
+          <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Select which payment methods are active and available to customers at checkout</p>
+        </div>
+        <div className="bg-[#0a0a0a] border border-white/5 p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <input 
+              type="checkbox" 
+              id="razorpay-enabled" 
+              checked={formData.razorpayEnabled !== false} 
+              onChange={e => setFormData({ ...formData, razorpayEnabled: e.target.checked })} 
+              className="w-4 h-4 accent-primary" 
+            />
+            <div>
+              <label htmlFor="razorpay-enabled" className="text-sm font-bold text-white uppercase tracking-widest cursor-pointer block">
+                Enable Online Payments (Razorpay Card / UPI)
+              </label>
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">Toggle off if your Razorpay account is under review or verification is pending</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 border-t border-white/5 pt-6">
+            <input 
+              type="checkbox" 
+              id="cod-enabled" 
+              checked={formData.codEnabled !== false} 
+              onChange={e => setFormData({ ...formData, codEnabled: e.target.checked })} 
+              className="w-4 h-4 accent-primary" 
+            />
+            <div>
+              <label htmlFor="cod-enabled" className="text-sm font-bold text-white uppercase tracking-widest cursor-pointer block">
+                Enable Cash on Delivery (COD)
+              </label>
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">Allow customers to pay physical cash upon order receipt/delivery</p>
+            </div>
           </div>
         </div>
       </div>

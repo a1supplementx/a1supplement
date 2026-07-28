@@ -35,6 +35,23 @@ const Checkout = () => {
   const [selectedRegion, setSelectedRegion] = useState('');
 
   useEffect(() => {
+    const isOnlineEnabled = settings.razorpayEnabled !== false;
+    const isBankEnabled = settings.bankDetails?.enabled;
+    const isCodEnabled = settings.codEnabled !== false;
+
+    if (paymentMethod === 'online' && !isOnlineEnabled) {
+      if (isCodEnabled) setPaymentMethod('cod');
+      else if (isBankEnabled) setPaymentMethod('bank');
+    } else if (paymentMethod === 'cod' && !isCodEnabled) {
+      if (isOnlineEnabled) setPaymentMethod('online');
+      else if (isBankEnabled) setPaymentMethod('bank');
+    } else if (paymentMethod === 'bank' && !isBankEnabled) {
+      if (isOnlineEnabled) setPaymentMethod('online');
+      else if (isCodEnabled) setPaymentMethod('cod');
+    }
+  }, [settings, paymentMethod]);
+
+  useEffect(() => {
     const autofill = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -397,15 +414,21 @@ const Checkout = () => {
               <h2 className="text-xl font-bold text-white uppercase tracking-wider mb-6">Choose Payment</h2>
 
               {/* Payment Method Selector */}
-              <div className={`grid gap-4 mb-8 ${settings.bankDetails?.enabled ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('online')}
-                  className={`flex flex-col items-center gap-2 p-4 border-2 font-bold uppercase tracking-wider text-sm transition-all ${paymentMethod === 'online' ? 'border-[#3395FF] bg-[#3395FF]/10 text-[#3395FF]' : 'border-white/10 text-gray-400 hover:border-white/30'}`}
-                >
-                  <CardIcon size={24} />
-                  Card / UPI
-                </button>
+              <div className={`grid gap-4 mb-8 grid-cols-1 sm:grid-cols-${
+                (settings.razorpayEnabled !== false ? 1 : 0) + 
+                (settings.bankDetails?.enabled ? 1 : 0) + 
+                (settings.codEnabled !== false ? 1 : 0)
+              }`}>
+                {settings.razorpayEnabled !== false && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('online')}
+                    className={`flex flex-col items-center gap-2 p-4 border-2 font-bold uppercase tracking-wider text-sm transition-all ${paymentMethod === 'online' ? 'border-[#3395FF] bg-[#3395FF]/10 text-[#3395FF]' : 'border-white/10 text-gray-400 hover:border-white/30'}`}
+                  >
+                    <CardIcon size={24} />
+                    Card / UPI
+                  </button>
+                )}
                 {settings.bankDetails?.enabled && (
                   <button
                     type="button"
@@ -416,14 +439,16 @@ const Checkout = () => {
                     Bank Transfer
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('cod')}
-                  className={`flex flex-col items-center gap-2 p-4 border-2 font-bold uppercase tracking-wider text-sm transition-all ${paymentMethod === 'cod' ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 text-gray-400 hover:border-white/30'}`}
-                >
-                  <Banknote size={24} />
-                  Cash on Delivery
-                </button>
+                {settings.codEnabled !== false && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('cod')}
+                    className={`flex flex-col items-center gap-2 p-4 border-2 font-bold uppercase tracking-wider text-sm transition-all ${paymentMethod === 'cod' ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 text-gray-400 hover:border-white/30'}`}
+                  >
+                    <Banknote size={24} />
+                    Cash on Delivery
+                  </button>
+                )}
               </div>
 
               <AnimatePresence mode="wait">

@@ -141,7 +141,7 @@ const TrackOrder = () => {
 
                 <div className="space-y-4">
                   <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Items Shipped</h4>
-                  {order.items.map(item => (
+                  {order.items.map((item: any) => (
                     <div key={item.id} className="flex items-center gap-4 bg-[#0a0a0a] p-4 border border-white/5">
                       <img src={item.image} alt="" className="w-12 h-12 object-cover bg-black" />
                       <div className="flex-grow">

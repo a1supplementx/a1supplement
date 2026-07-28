@@ -110,7 +110,7 @@ const Checkout = () => {
 
   const placeOrder = (method: 'online' | 'cod' | 'bank') => {
     setIsProcessing(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       const orderPromosArray = activePromos.map(p => ({
         code: p.code,
         isFreeShipping: p.type === 'free_shipping',
@@ -119,7 +119,7 @@ const Checkout = () => {
 
       const newOrderStatus = method === 'bank' ? 'Pending Payment' : 'Pending';
 
-      addOrder({
+      const savedOrder = await addOrder({
         customerData: shippingData,
         items: cart,
         subtotal: cartTotal,
@@ -130,6 +130,18 @@ const Checkout = () => {
         paymentMethod: method,
         fulfillmentType,
       });
+
+      // Trigger Order Received Email
+      if (savedOrder) {
+        fetch('/api/send-order-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'new_order',
+            order: savedOrder
+          })
+        }).catch(err => console.error("Error triggering new order email:", err));
+      }
 
       // Discord Webhook Notification Alert
       const webhookUrl = import.meta.env.VITE_DISCORD_WEBHOOK_URL;

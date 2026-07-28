@@ -152,9 +152,93 @@ const Checkout = () => {
     }, 1200);
   };
 
-  const handlePaymentSubmit = (e: React.FormEvent) => {
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    placeOrder('online');
+    setIsProcessing(true);
+
+    try {
+      // 1. Create Razorpay order on the serverless backend
+      const response = await fetch('/api/create-razorpay-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: finalTotal,
+          currency: 'INR',
+          receipt: `rcpt_${Math.random().toString(36).substring(2, 10)}`
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create payment order');
+      }
+
+      const { order_id } = await response.json();
+
+      // 2. Load keys and configure Razorpay standard options
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TIzZI7E1vOFf9a',
+        amount: Math.round(finalTotal * 100),
+        currency: 'INR',
+        name: 'A1 Supplements',
+        description: 'Workout Supplements & Nutrition',
+        image: 'https://a1supplement.com/favicon.ico',
+        order_id: order_id,
+        handler: async function (resp: any) {
+          try {
+            // 3. Verify signatures on the backend
+            const verifyRes = await fetch('/api/verify-razorpay-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: resp.razorpay_order_id,
+                razorpay_payment_id: resp.razorpay_payment_id,
+                razorpay_signature: resp.razorpay_signature
+              })
+            });
+
+            if (!verifyRes.ok) {
+              throw new Error('Payment signature verification failed');
+            }
+
+            const verifyData = await verifyRes.json();
+            if (verifyData.verified) {
+              // 4. Verification successful, complete order creation
+              placeOrder('online');
+            } else {
+              alert('Payment verification failed. Please contact support.');
+              setIsProcessing(false);
+            }
+          } catch (err: any) {
+            alert(err.message || 'Verification failed');
+            setIsProcessing(false);
+          }
+        },
+        prefill: {
+          name: `${shippingData?.firstName || ''} ${shippingData?.lastName || ''}`,
+          email: shippingData?.email || '',
+          contact: shippingData?.phone || ''
+        },
+        theme: {
+          color: '#FFD700' // Gold accent colors matching branding
+        },
+        modal: {
+          ondismiss: function () {
+            setIsProcessing(false);
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (failResp: any) {
+        alert(`Payment failed: ${failResp.error.description}`);
+        setIsProcessing(false);
+      });
+      rzp.open();
+    } catch (err: any) {
+      alert(err.message || 'Payment initiation failed. Please try again.');
+      setIsProcessing(false);
+    }
   };
 
   if (checkoutStep === 'confirmed') {
@@ -345,35 +429,21 @@ const Checkout = () => {
               <AnimatePresence mode="wait">
                 {paymentMethod === 'online' ? (
                   <motion.div key="online" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <div className="bg-white p-6 rounded relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-4 opacity-10"><CreditCard size={80} /></div>
-                      <div className="mb-6 flex justify-between items-center text-black">
-                        <span className="font-bold uppercase tracking-widest text-sm">Cards, UPI, NetBanking</span>
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Razorpay_logo.svg/1024px-Razorpay_logo.svg.png" className="h-6 object-contain" alt="Razorpay" />
+                    <div className="bg-[#0a0a0a] border border-white/10 p-6 space-y-4">
+                      <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                        <span className="font-bold uppercase tracking-widest text-sm text-white flex items-center gap-2">
+                          <CreditCard size={18} className="text-[#3395FF]" /> Cards, UPI, NetBanking
+                        </span>
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Razorpay_logo.svg/1024px-Razorpay_logo.svg.png" className="h-5 object-contain brightness-0 invert" alt="Razorpay" />
                       </div>
-                      <form id="payment-form" onSubmit={handlePaymentSubmit} className="space-y-4 relative z-10">
-                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Card Number</label>
-                          <div className="relative">
-                            <input required type="text" pattern="\d{16}" maxLength={16} placeholder="XXXX XXXX XXXX XXXX" className="w-full bg-gray-50 border border-gray-300 text-black px-4 py-3 focus:outline-none focus:border-[#3395FF] transition-colors" />
-                            <CreditCard size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Expiry</label>
-                            <input required type="text" pattern="\d\d/\d\d" maxLength={5} placeholder="MM/YY" className="w-full bg-gray-50 border border-gray-300 text-black px-4 py-3 focus:outline-none focus:border-[#3395FF] transition-colors" />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">CVV</label>
-                            <input required type="password" pattern="\d{3}" maxLength={3} placeholder="123" className="w-full bg-gray-50 border border-gray-300 text-black px-4 py-3 focus:outline-none focus:border-[#3395FF] transition-colors" />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Cardholder Name</label>
-                          <input required type="text" defaultValue={`${shippingData?.firstName || ''} ${shippingData?.lastName || ''}`} className="w-full bg-gray-50 border border-gray-300 text-black px-4 py-3 focus:outline-none focus:border-[#3395FF] transition-colors" />
-                        </div>
-                      </form>
+                      <p className="text-gray-400 text-xs leading-relaxed">
+                        Safe and secure online payments powered by Razorpay. Once you click "Pay & Place Order" on the right, the official Razorpay payment portal will open so you can pay via credit/debit cards, UPI apps, NetBanking, or digital wallets.
+                      </p>
+                      <div className="bg-black/30 p-4 space-y-1 text-sm">
+                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Billing Email</p>
+                        <p className="text-white font-medium">{shippingData?.email || 'N/A'}</p>
+                      </div>
+                      <form id="payment-form" onSubmit={handlePaymentSubmit} className="hidden"></form>
                     </div>
                   </motion.div>
                 ) : paymentMethod === 'bank' ? (
